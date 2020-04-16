@@ -1,0 +1,277 @@
+<html>
+    <head>
+        <title> Ssssnake </title>
+        <script type="text/javascript" src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+        <script type="text/javascript">
+            var theSnake;
+        
+            var oppositeDirs = {
+                "U": "D",
+                "D": "U",
+                "L": "R",
+                "R": "L"
+            };
+            var forwardCoeffs = {
+                "U": -1,
+                "D": 1,
+                "L": -1,
+                "R": 1
+            };
+            var backwardCoeffs = {
+                "U": 1,
+                "D": -1,
+                "L": 1,
+                "R": -1
+            };
+            var bodyPartClasses = {
+                "H": "head",
+                "T": "tail",
+                "N": "node"
+            };
+            var horizDirs = { "R": 1, "L": 1, "U": 0, "D": 0 };
+            var vertDirs = { "R": 0, "L": 0, "U": 1, "D": 1 };
+            
+            var arrowKeys2NewDirs = {
+                ArrowLeft:  "L",
+                ArrowUp:    "U",
+                ArrowRight: "R",
+                ArrowDown:  "D"
+            };
+            
+            function Point(x, y) {
+                this.x = Math.trunc(x);
+                this.y = Math.trunc(y);
+            }
+            //direction: L(eft), R(ight), U(p), D(own)
+            //bodyPart: H(ead), B(ody), T(ail)
+            function SnakeNode(x, y, oldDirection, direction, bodyPart) {
+                Point.call(this, x, y);
+                
+                this.direction = direction;
+                this.oldDirection = oldDirection;
+                this.bodyPart = bodyPart;
+            }
+            SnakeNode.prototype = Object.create(Point.prototype);
+            SnakeNode.prototype.getForwardCoeffs = function() {
+                return forwardCoeffs[this.direction];
+            }
+            SnakeNode.prototype.getBackwardCoeffs = function() {
+                return backwardCoeffs[this.direction];
+            }
+            
+            function DLListItem(previous, data, next) {
+                /*DLListItem*/ this.previous = previous;
+                /*DLListItem*/ this.next = next;
+                this.data = data;
+            }
+            function DLList(headData, tailData) {
+                /*DLListItem*/ this.itmTail = new DLListItem(null, tailData);
+                /*DLListItem*/ this.itmHead = new DLListItem(this.itmTail, headData, null);
+                this.itmTail.next = this.itmHead;
+            }
+            DLList.prototype.insertBefore = function(dataToInsert, beforeThisItem) {
+                var newNode = new DLListItem(beforeThisItem.previous, dataToInsert, beforeThisItem);
+                if(beforeThisItem.previous)
+                    beforeThisItem.previous.next = newNode;
+                beforeThisItem.previous = newNode;
+                return newNode;
+            }
+            DLList.prototype.remove = function(item) {
+                if(item.previous)
+                    item.previous.next = item.next;
+                if(item.next)
+                    item.next.previous = item.previous;
+            }
+            function Snake(rowCount, colCount) {
+                this.rowCount = rowCount;
+                this.colCount = colCount;
+                this.timeInterval = 300;
+                this.intervalID;
+                this.newDirection;
+                this.nodes = new DLList(new SnakeNode(40 / 2 + 5, 15 / 2, "R", "R", "H"), new SnakeNode(40 / 2 - 5, 15 / 2, "R", "R", "T"));
+                
+                this.draw();
+                
+                var thisSnake = this;
+                
+                this.intervalID = setInterval(function() { thisSnake.advance(); }, this.timeInterval);
+                
+                document.onkeydown = function(event) {
+                    var whereTo = arrowKeys2NewDirs[event.key];
+                    if(whereTo) {
+                        var opposites = {};
+                        opposites[whereTo] = whereTo;
+                        opposites[oppositeDirs[whereTo]] = whereTo;
+                        if(!opposites[thisSnake.nodes.itmHead.data.direction]) {
+                            thisSnake.newDirection = whereTo;
+                            console.log("noua directie: " + whereTo);
+                        }
+                    }
+                };
+            }
+            Snake.prototype.draw = function() {
+                var crtItm, nxtItm;
+                var crtX = 0, crtY = 0;
+                
+                function setCrtItm(newCrtItm) {
+                    crtItm = newCrtItm;
+                    crtX = crtItm.data.x;
+                    crtY = crtItm.data.y;
+                    
+                    nxtItm = crtItm ? crtItm.previous : null;
+                }
+                
+                function nextCell() {
+                    crtX += horizDirs[crtItm.data.direction] * backwardCoeffs[crtItm.data.direction];
+                    crtY += vertDirs[crtItm.data.direction] * backwardCoeffs[crtItm.data.direction];
+                }
+                
+                setCrtItm(this.nodes.itmHead);
+                while(nxtItm) {
+                    while(crtX != nxtItm.data.x || crtY != nxtItm.data.y) {
+                        this.markCell(crtItm, crtX, crtY, "body");
+                    this.markCell(crtItm, crtX, crtY);
+                        nextCell();
+                    }
+                    setCrtItm(crtItm.previous);
+                    this.markCell(crtItm, crtX, crtY, "body");
+                    this.markCell(crtItm, crtX, crtY);
+                    nextCell();
+                }
+            }
+            Snake.prototype.getJQCell = function(x, y, snakeNode) {
+                var crtX = x ? x : snakeNode.data.x;
+                var crtY = y ? y : snakeNode.data.y;
+                return $("#cell" + crtX + "_" + crtY);
+            }
+            Snake.prototype.markCell = function (crtItm, crtX, crtY, clear, preloadedJQCell) {
+                var jqCell = preloadedJQCell ? preloadedJQCell : this.getJQCell(crtX, crtY, crtItm);
+                if(clear) {
+                    jqCell.attr("class", clear);
+                    return;
+                }
+                var whatFn = jqCell.addClass;
+                if(crtItm.data.x == crtX && crtItm.data.y == crtY) {
+                    whatFn.call(jqCell, bodyPartClasses[crtItm.data.bodyPart]);
+                    var dirClass = 
+                        (crtItm == this.nodes.itmHead ? 
+                            crtItm.data.direction :
+                            (crtItm == this.nodes.itmTail ?
+                                oppositeDirs[crtItm.data.direction] :
+                                (crtItm.data.oldDirection + crtItm.data.direction)
+                            )
+                        );
+                    whatFn.call(jqCell, "dir" + dirClass);
+                }
+            }
+            Snake.prototype.gameOver = function(message) {
+                clearInterval(this.intervalID);
+                alert(message);
+            }
+            Snake.prototype.advance = function() {
+                var crtNd = this.nodes.itmHead;
+                var oldDirection = crtNd.data.direction;
+                crtNd.data.direction = this.newDirection || oldDirection;
+                var newX, newY, oldX = crtNd.data.x, oldY = crtNd.data.y;
+                function compNewXY() {
+                    newX = crtNd.data.x + horizDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
+                    newY = crtNd.data.y + vertDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
+                }
+                compNewXY();
+                if(newX<1 || newX > this.colCount || newY<1 || newY > this.rowCount) {
+                    this.gameOver("Game over, you left the playground.");
+                } else {
+                    var jqCell = this.getJQCell(newX, newY);
+                    if(jqCell.hasClass("body")) {
+                        this.gameOver("Game over, snake's riding itself now...");
+                    } else {
+                        this.markCell(crtNd, oldX, oldY, "body");
+                        crtNd.data.x = newX;
+                        crtNd.data.y = newY;
+                        var newNode;
+                        if(oldDirection != crtNd.data.direction) {
+                            newNode = new SnakeNode(oldX, oldY, oldDirection, crtNd.data.direction, "N");
+                            newNode = this.nodes.insertBefore(newNode, crtNd);
+                            this.markCell(newNode, oldX, oldY);
+                        }
+                        this.markCell(crtNd, newX, newY, "body", jqCell);
+                        this.markCell(crtNd, newX, newY, false, jqCell);
+                    }
+                }
+                
+                crtNd = this.nodes.itmTail;
+                oldX = crtNd.data.x;
+                oldY = crtNd.data.y;
+                compNewXY();
+                if(crtNd.next.data.x == newX && crtNd.next.data.y == newY) {
+                    crtNd.data.direction = crtNd.next.data.direction;
+                    this.nodes.remove(crtNd.next);
+                }
+                this.markCell(crtNd, oldX, oldY, "none");
+                crtNd.data.x = newX;
+                crtNd.data.y = newY;
+                this.markCell(crtNd, newX, newY);
+            }
+            
+            $(document).ready(function() {
+                var rowCount = 15;
+                var colCount = 40;
+                
+                var jqTbl = $('<table cellspacing="0"></table>');
+                var jqRw;
+                for(var i=0; i<rowCount; i++) {
+                    jqRw = $("<tr></tr>");
+                    for(var j=0; j<colCount; j++) {
+                        jqRw.append($('<td id="cell' + j + "_" + i + '"></td>'));
+                    }
+                    jqTbl.append(jqRw);
+                }
+                $("body").append(jqTbl);
+                
+                theSnake = new Snake(rowCount, colCount);
+            });
+        </script>
+        <style type="text/css">
+            td {
+                width: 15px;
+                height: 15px;
+                border: 1px solid black;
+            }
+            td .snakeBody {
+                background-color: brown;
+            }
+            
+            .body {
+                background-color: black;
+            }
+            .body.dirR {
+                border-radius: 0px 7px 7px 0px;
+            }
+            .body.dirL {
+                border-radius: 7px 0px 0px 7px;
+            }
+            .body.dirU {
+                border-radius: 7px 7px 0px 0px;
+            }
+            .body.dirD {
+                border-radius: 0px 0px 7px 7px;
+            }
+            
+            .body.dirRU, .body.dirDL {
+                border-radius: 0px 0px 7px 0px;
+            }
+            .body.dirUR, .body.dirLD {
+                border-radius: 7px 0px 0px 0px;
+            }
+            .body.dirRD, .body.dirUL {
+                border-radius: 0px 7px 0px 0px;
+            }
+            .body.dirDR, .body.dirLU {
+                border-radius: 0px 0px 0px 7px;
+            }
+        </style>
+    </head>
+    <body>
+    
+    </body>
+</html>
