@@ -42,6 +42,8 @@
                 this.x = Math.trunc(x);
                 this.y = Math.trunc(y);
             }
+            Point.prototype.constructor = Point;
+            
             //direction: L(eft), R(ight), U(p), D(own)
             //bodyPart: H(ead), B(ody), T(ail)
             function SnakeNode(x, y, oldDirection, direction, bodyPart) {
@@ -51,6 +53,7 @@
                 this.oldDirection = oldDirection;
                 this.bodyPart = bodyPart;
             }
+            SnakeNode.prototype.constructor = SnakeNode;
             SnakeNode.prototype = Object.create(Point.prototype);
             SnakeNode.prototype.getForwardCoeffs = function() {
                 return forwardCoeffs[this.direction];
@@ -64,11 +67,14 @@
                 /*DLListItem*/ this.next = next;
                 this.data = data;
             }
+            DLListItem.prototype.constructor = DLListItem;
+            
             function DLList(headData, tailData) {
                 /*DLListItem*/ this.itmTail = new DLListItem(null, tailData);
                 /*DLListItem*/ this.itmHead = new DLListItem(this.itmTail, headData, null);
                 this.itmTail.next = this.itmHead;
             }
+            DLList.prototype.constructor = DLList;
             DLList.prototype.insertBefore = function(dataToInsert, beforeThisItem) {
                 var newNode = new DLListItem(beforeThisItem.previous, dataToInsert, beforeThisItem);
                 if(beforeThisItem.previous)
@@ -82,6 +88,7 @@
                 if(item.next)
                     item.next.previous = item.previous;
             }
+            
             function Snake(rowCount, colCount) {
                 this.rowCount = rowCount;
                 this.colCount = colCount;
@@ -108,6 +115,7 @@
                     }
                 };
             }
+            Snake.prototype.constructor = Snake;
             Snake.prototype.draw = function() {
                 var crtItm, nxtItm;
                 var crtX = 0, crtY = 0;
