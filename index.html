@@ -226,9 +226,9 @@
                 
                 var jqTbl = $('<table cellspacing="0"></table>');
                 var jqRw;
-                for(var i=0; i<rowCount; i++) {
+                for(var i=1; i<=rowCount; i++) {
                     jqRw = $("<tr></tr>");
-                    for(var j=0; j<colCount; j++) {
+                    for(var j=1; j<=colCount; j++) {
                         jqRw.append($('<td id="cell' + j + "_" + i + '"></td>'));
                     }
                     jqTbl.append(jqRw);
