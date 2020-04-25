@@ -38,14 +38,16 @@
                         <li> //The head: </li>
                         <li> Computes the head's new location according to it's direction </li>
                         <li> Checks whether the head will go outside the gaming surface or over it's own body, in which case it calls the gameOver method and returns </li>
+                        <li> Calls the food dispenser's checkCell method to see wether there's anything to "eat" at the new location </li>
                         <li> "Clears" the old location (only keeping it's body class) </li>
                         <li> If a change in direction was requested in the "onkeydown" handler, then a new Turning Point is generated with the head's old position and direction and inserted just before the head by calling the DLList's insertBefore method. The turning point is marked with the appropriate css classes </li>
-                        <li> The new head's position is marked with the appropriate css classes according to it's bodypart and direction. </li>
+                        <li> The new head's position is marked with the appropriate css classes according to it's bodypart and direction </li>
                         <li> //The tail: </li>
-                        <li> Computes the tail's new position according to it's direction. </li>
-                        <li> Checks whether the tail's newly computed position is over the last Turning Point. If it is, then the tail takes that TP's direction and deletes it. </li>
-                        <li> The tail's old position is cleared of all of it's snake-body-related css classes. </li>
-                        <li> The tail's new position is marked according to it's bodypart and direction. </li>
+                        <li> Checks whether the snake needs to grow (the cntLeft2Grow property), in which case cntLeft2Grow is decremented and the following steps are ignored </li>
+                        <li> Computes the tail's new position according to it's direction </li>
+                        <li> Checks whether the tail's newly computed position is over the last Turning Point. If it is, then the tail takes that TP's direction and deletes it </li>
+                        <li> The tail's old position is cleared of all of it's snake-body-related css classes </li>
+                        <li> The tail's new position is marked according to it's bodypart and direction </li>
                     </ol>
                 </li>
             </ol>

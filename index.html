@@ -11,12 +11,14 @@
                 "L": "R",
                 "R": "L"
             };
+            //negative means coordinates increase, positive means decrease
             var forwardCoeffs = {
                 "U": -1,
                 "D": 1,
                 "L": -1,
                 "R": 1
             };
+            //opposite of forwardCoeffs; I could've just used (-1 * forwardCoeffs[someDirection])
             var backwardCoeffs = {
                 "U": 1,
                 "D": -1,
@@ -38,11 +40,82 @@
                 ArrowDown:  "D"
             };
             
+            var theFoodDispenser;
+            
+            //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random#Getting_a_random_integer_between_two_values_inclusive
+            function getRandomIntInclusive(min, max) {
+                min = Math.ceil(min);
+                max = Math.floor(max);
+                return Math.floor(Math.random() * (max - min + 1)) + min; //The maximum is inclusive and the minimum is inclusive 
+            }
+            
+            function FoodDispenser(rowCount, colCount) {
+                this.rowCount = rowCount;
+                this.colCount = colCount;
+                this.foodItems = {};
+                
+                this.theBE = this.makeNewFoodItem();// new BigEgg(this, 3, 3);
+            }
+            FoodDispenser.prototype.constructor = FoodDispenser;
+            FoodDispenser.prototype.checkCell = function(x, y) {
+                var foodItm, cellID;
+                if(foodItm = this.foodItems[cellID = "cell" + x + "_" + y]) {
+                    foodItm.eatenBySnake();
+                    delete this.foodItems[cellID];
+                    this.makeNewFoodItem();
+                }
+            }
+            FoodDispenser.prototype.makeNewFoodItem = function() {
+                var maxY = this.rowCount + 1;
+                var maxX = this.colCount + 1;
+                
+                var crtX, crtY;
+                do {
+                    crtX = getRandomIntInclusive(1, maxX);
+                    crtY = getRandomIntInclusive(1, maxY);
+                } while(!document.querySelector("#cell" + crtX + "_" + crtY + ":not(.body)"));
+                this.theBE = new BigEgg(this, crtX, crtY);
+                this.foodItems[this.theBE.cellName] = this.theBE;
+            }
+            
             function Point(x, y) {
                 this.x = Math.trunc(x);
                 this.y = Math.trunc(y);
             }
             Point.prototype.constructor = Point;
+            
+            function FoodItem(foodDispenser, x, y) {
+                Point.call(this, x, y);
+                this.foodDispenser = foodDispenser;
+                this.cellName = "cell" + x + "_" + y;
+                foodDispenser.foodItems[this.cellName] = this;
+                
+                //actionsWhenEaten items: {method, args}
+                //method: a function to be called when the FoodItem is eaten
+                //args: the arguments to be passed to the given method
+                this.actionsWhenEaten = [];
+                this.jqCell = $("#" + this.cellName);
+            }
+            FoodItem.prototype.constructor = FoodItem;
+            FoodItem.prototype = Object.create(Point.prototype);
+            FoodItem.prototype.eatenBySnake = function() {
+                if(this.actionsWhenEaten) {
+                    for(var i=0; i<this.actionsWhenEaten.length; i++) {
+                        this.actionsWhenEaten[i].method.call(theSnake, this.actionsWhenEaten[i].args);
+                    }
+                }
+            }
+            
+            function BigEgg(foodDispenser, x, y) {
+                FoodItem.call(this, foodDispenser, x, y);
+                this.actionsWhenEaten.push({
+                    method: Snake.prototype.grow,
+                    args: [5]
+                })
+                this.jqCell.addClass("BigEgg");
+            }
+            BigEgg.prototype.constructor = BigEgg;
+            BigEgg.prototype = Object.create(FoodItem.prototype);
             
             //direction: L(eft), R(ight), U(p), D(own)
             //bodyPart: H(ead), B(ody), T(ail)
@@ -95,6 +168,7 @@
                 this.timeInterval = 300;
                 this.intervalID;
                 this.newDirection;
+                this.cntLeft2Grow = 0;
                 this.nodes = new DLList(new SnakeNode(40 / 2 + 5, 15 / 2, "R", "R", "H"), new SnakeNode(40 / 2 - 5, 15 / 2, "R", "R", "T"));
                 
                 this.draw();
@@ -116,6 +190,9 @@
                 };
             }
             Snake.prototype.constructor = Snake;
+            Snake.prototype.grow = function(howMuch) {
+                this.cntLeft2Grow += howMuch;
+            }
             Snake.prototype.draw = function() {
                 var crtItm, nxtItm;
                 var crtX = 0, crtY = 0;
@@ -155,7 +232,7 @@
                 var jqCell = preloadedJQCell ? preloadedJQCell : this.getJQCell(crtX, crtY, crtItm);
                 if(clear) {
                     jqCell.attr("class", clear);
-                    return;
+                    return jqCell;
                 }
                 var whatFn = jqCell.addClass;
                 if(crtItm.data.x == crtX && crtItm.data.y == crtY) {
@@ -170,6 +247,7 @@
                         );
                     whatFn.call(jqCell, "dir" + dirClass);
                 }
+                return jqCell;
             }
             Snake.prototype.gameOver = function(message) {
                 clearInterval(this.intervalID);
@@ -192,6 +270,8 @@
                     if(jqCell.hasClass("body")) {
                         this.gameOver("Game over, snake's riding itself now...");
                     } else {
+                        theFoodDispenser.checkCell(newX, newY);
+                        
                         this.markCell(crtNd, oldX, oldY, "body");
                         crtNd.data.x = newX;
                         crtNd.data.y = newY;
@@ -206,6 +286,10 @@
                     }
                 }
                 
+                if(this.cntLeft2Grow) {
+                    this.cntLeft2Grow--;
+                    return;
+                }
                 crtNd = this.nodes.itmTail;
                 oldX = crtNd.data.x;
                 oldY = crtNd.data.y;
@@ -235,6 +319,7 @@
                 }
                 $("body").append(jqTbl);
                 
+                theFoodDispenser = new FoodDispenser(rowCount, colCount);
                 theSnake = new Snake(rowCount, colCount);
             });
         </script>
@@ -275,6 +360,12 @@
             }
             .body.dirDR, .body.dirLU {
                 border-radius: 0px 0px 0px 7px;
+            }
+            
+            .BigEgg{
+                border-radius: 5px;
+                background-color: lightgoldenrodyellow;
+                border-color: lightgoldenrodyellow;
             }
         </style>
     </head>
