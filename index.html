@@ -162,30 +162,42 @@
                     item.next.previous = item.previous;
             }
             
+            function Queue() {
+                DLList.call(this, null, null);
+            }
+            Queue.prototype.constructor = Queue;
+            Queue.prototype = Object.create(DLList.prototype);
+            Queue.prototype.enqueue = function(data) {
+                this.insertBefore(data, this.itmHead);
+            }
+            Queue.prototype.dequeue = function() {
+                var result = this.itmTail.next;
+                if(this.itmHead === result)
+                    return null;
+                
+                this.remove(result);
+                return result.data;
+            }
+            
             function Snake(rowCount, colCount) {
+                var thisSnake = this;
+                
                 this.rowCount = rowCount;
                 this.colCount = colCount;
                 this.timeInterval = 300;
                 this.intervalID;
-                this.newDirection;
                 this.cntLeft2Grow = 0;
                 this.nodes = new DLList(new SnakeNode(40 / 2 + 5, 15 / 2, "R", "R", "H"), new SnakeNode(40 / 2 - 5, 15 / 2, "R", "R", "T"));
+                this.keyCommands = new Queue();
                 
                 this.draw();
-                
-                var thisSnake = this;
                 
                 this.intervalID = setInterval(function() { thisSnake.advance(); }, this.timeInterval);
                 
                 document.onkeydown = function(event) {
                     var whereTo = arrowKeys2NewDirs[event.key];
                     if(whereTo) {
-                        var opposites = {};
-                        opposites[whereTo] = whereTo;
-                        opposites[oppositeDirs[whereTo]] = whereTo;
-                        if(!opposites[thisSnake.nodes.itmHead.data.direction]) {
-                            thisSnake.newDirection = whereTo;
-                        }
+                        thisSnake.keyCommands.enqueue(whereTo);
                     }
                 };
             }
@@ -256,7 +268,10 @@
             Snake.prototype.advance = function() {
                 var crtNd = this.nodes.itmHead;
                 var oldDirection = crtNd.data.direction;
-                crtNd.data.direction = this.newDirection || oldDirection;
+                var newDirection = this.keyCommands.dequeue() || oldDirection;
+                newDirection = oppositeDirs[newDirection] == oldDirection ? oldDirection : newDirection;
+                
+                crtNd.data.direction = newDirection;
                 var newX, newY, oldX = crtNd.data.x, oldY = crtNd.data.y;
                 function compNewXY() {
                     newX = crtNd.data.x + horizDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
