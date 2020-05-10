@@ -1,6 +1,7 @@
 <html>
     <head>
         <title> Ssssnake </title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
         <script type="text/javascript" src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
         <script type="text/javascript">
             var theSnake;
@@ -52,30 +53,32 @@
             function FoodDispenser(rowCount, colCount) {
                 this.rowCount = rowCount;
                 this.colCount = colCount;
-                this.foodItems = {};
                 
-                this.theBE = this.makeNewFoodItem();// new BigEgg(this, 3, 3);
+                this.theFoodItem;
+                this.makeNewFoodItem();
             }
             FoodDispenser.prototype.constructor = FoodDispenser;
             FoodDispenser.prototype.checkCell = function(x, y) {
-                var foodItm, cellID;
-                if(foodItm = this.foodItems[cellID = "cell" + x + "_" + y]) {
-                    foodItm.eatenBySnake();
-                    delete this.foodItems[cellID];
+                if(this.theFoodItem.x == x && this.theFoodItem.y == y) {
+                    this.theFoodItem.eatenBySnake();
                     this.makeNewFoodItem();
                 }
             }
             FoodDispenser.prototype.makeNewFoodItem = function() {
                 var maxY = this.rowCount + 1;
                 var maxX = this.colCount + 1;
+                this.foodItemFactories = [
+                    (x, y) => new Egg(this, x, y),
+                    (x, y) => new Hamburger(this, x, y),
+                    (x, y) => new Crosshairs(this, x, y)
+                ];
                 
                 var crtX, crtY;
                 do {
                     crtX = getRandomIntInclusive(1, maxX);
                     crtY = getRandomIntInclusive(1, maxY);
                 } while(!document.querySelector("#cell" + crtX + "_" + crtY + ":not(.body)"));
-                this.theBE = new BigEgg(this, crtX, crtY);
-                this.foodItems[this.theBE.cellName] = this.theBE;
+                this.theFoodItem = this.foodItemFactories[getRandomIntInclusive(0, 2)].call(this, crtX, crtY);
             }
             
             function Point(x, y) {
@@ -88,13 +91,13 @@
                 Point.call(this, x, y);
                 this.foodDispenser = foodDispenser;
                 this.cellName = "cell" + x + "_" + y;
-                foodDispenser.foodItems[this.cellName] = this;
                 
                 //actionsWhenEaten items: {method, args}
                 //method: a function to be called when the FoodItem is eaten
                 //args: the arguments to be passed to the given method
                 this.actionsWhenEaten = [];
                 this.jqCell = $("#" + this.cellName);
+                this.className = "FoodItem";
             }
             FoodItem.prototype.constructor = FoodItem;
             FoodItem.prototype = Object.create(Point.prototype);
@@ -106,16 +109,38 @@
                 }
             }
             
-            function BigEgg(foodDispenser, x, y) {
+            function Egg(foodDispenser, x, y) {
+                FoodItem.call(this, foodDispenser, x, y);
+                this.actionsWhenEaten.push({
+                    method: Snake.prototype.grow,
+                    args: [3]
+                })
+                this.jqCell.addClass(this.className = "fas fa-egg FoodItem");
+            }
+            Egg.prototype.constructor = Egg;
+            Egg.prototype = Object.create(FoodItem.prototype);
+            
+            function Hamburger(foodDispenser, x, y) {
                 FoodItem.call(this, foodDispenser, x, y);
                 this.actionsWhenEaten.push({
                     method: Snake.prototype.grow,
                     args: [5]
-                })
-                this.jqCell.addClass("BigEgg");
+                });
+                this.jqCell.addClass(this.className = "fas fa-hamburger FoodItem");
             }
-            BigEgg.prototype.constructor = BigEgg;
-            BigEgg.prototype = Object.create(FoodItem.prototype);
+            Hamburger.prototype.constructor = Hamburger;
+            Hamburger.prototype = Object.create(FoodItem.prototype);
+            
+            function Crosshairs(foodDispenser, x, y) {
+                FoodItem.call(this, foodDispenser, x, y);
+                this.actionsWhenEaten.push({
+                    method: Snake.prototype.addSniperShots,
+                    args: [3]
+                });
+                this.jqCell.addClass(this.className = "fas fa-crosshairs FoodItem");
+            }
+            Crosshairs.prototype.constructor = Crosshairs;
+            Crosshairs.prototype = Object.create(FoodItem.prototype);
             
             //direction: L(eft), R(ight), U(p), D(own)
             //bodyPart: H(ead), B(ody), T(ail)
@@ -184,9 +209,11 @@
                 
                 this.rowCount = rowCount;
                 this.colCount = colCount;
-                this.timeInterval = 300;
+                this.timeInterval = 100;
                 this.intervalID;
                 this.cntLeft2Grow = 0;
+                this.sniperShots = 0;
+                this.paused = false;
                 this.nodes = new DLList(new SnakeNode(40 / 2 + 5, 15 / 2, "R", "R", "H"), new SnakeNode(40 / 2 - 5, 15 / 2, "R", "R", "T"));
                 this.keyCommands = new Queue();
                 
@@ -195,15 +222,64 @@
                 this.intervalID = setInterval(function() { thisSnake.advance(); }, this.timeInterval);
                 
                 document.onkeydown = function(event) {
-                    var whereTo = arrowKeys2NewDirs[event.key];
-                    if(whereTo) {
-                        thisSnake.keyCommands.enqueue(whereTo);
+                    switch(event.key.toUpperCase()) {
+                        case "X":
+                            thisSnake.keyCommands.enqueue("X");
+                            break;
+                        case " ":
+                            thisSnake.togglePause();
+                        default:
+                            var whereTo = arrowKeys2NewDirs[event.key];
+                            if(whereTo) {
+                                thisSnake.keyCommands.enqueue(whereTo);
+                            }
                     }
                 };
             }
             Snake.prototype.constructor = Snake;
             Snake.prototype.grow = function(howMuch) {
                 this.cntLeft2Grow += howMuch;
+            }
+            Snake.prototype.addSniperShots = function(howMany) {
+                this.sniperShots += Number(howMany);
+            }
+            Snake.prototype.togglePause = function() {
+                this.paused = !this.paused;
+            }
+            Snake.prototype.acquireTarget = function() {
+                if(this.sniperShots === 0)
+                    return;
+                
+                var snkHead = this.nodes.itmHead.data,
+                    foodItm = theFoodDispenser.theFoodItem;
+                var headDir = snkHead.direction;
+                if(!((horizDirs[headDir] && (snkHead.x > foodItm.x && backwardCoeffs[headDir] || snkHead.x < foodItm.x && forwardCoeffs[headDir]) && snkHead.y == foodItm.y) ||
+                    (vertDirs[headDir] && (snkHead.y > foodItm.y && backwardCoeffs[headDir] || snkHead.y < foodItm.y && forwardCoeffs[headDir]) && snkHead.x == foodItm.x))){
+     
+                    var crtX = foodItm.x,
+                        crtY = foodItm.y;
+                    var dx = horizDirs[headDir] ? 0 : (
+                            snkHead.x > foodItm.x ? 1 : -1
+                        ),
+                        dy = horizDirs[headDir] ? (
+                            snkHead.y > foodItm.y ? 1 : -1
+                        ) : 0;
+                    var jqCell;
+                    var xInsidePlayground = () => crtX <= this.colCount && crtX > 0;
+                    var yInsidePlayground = () => crtY <= this.rowCount && crtY > 0;
+                    var xSnakePathReached = () => vertDirs[headDir] && crtX == snkHead.x;
+                    var ySnakePathReached = () => horizDirs[headDir] && crtY == snkHead.y;
+                    var isBodyCell = () => (jqCell = $("#cell" + crtX + "_" + crtY)).hasClass("body");
+                    
+                    while(!isBodyCell() && xInsidePlayground() && yInsidePlayground()) {
+                        jqCell.addClass("lineOfSight");
+                        if(xSnakePathReached() || ySnakePathReached())
+                            break;
+                        crtX += dx;
+                        crtY += dy;
+                    }
+                }
+                this.sniperShots--;
             }
             Snake.prototype.draw = function() {
                 var crtItm, nxtItm;
@@ -243,7 +319,10 @@
             Snake.prototype.markCell = function (crtItm, crtX, crtY, clear, preloadedJQCell) {
                 var jqCell = preloadedJQCell ? preloadedJQCell : this.getJQCell(crtX, crtY, crtItm);
                 if(clear) {
-                    jqCell.attr("class", clear);
+                    if(typeof clear == "boolean")
+                        jqCell.removeClass("body dirR dirL dirU dirD dirRU dirUR dirRD dirDR dirDL dirLD dirUL dirLU head tail");
+                    else
+                        jqCell.attr("class", clear);
                     return jqCell;
                 }
                 var whatFn = jqCell.addClass;
@@ -266,18 +345,26 @@
                 alert(message);
             }
             Snake.prototype.advance = function() {
+                if(this.paused)
+                    return;
+                
                 var crtNd = this.nodes.itmHead;
                 var oldDirection = crtNd.data.direction;
                 var newDirection = this.keyCommands.dequeue() || oldDirection;
+                if(newDirection == "X") {
+                    this.acquireTarget();
+                    return;
+                }
                 newDirection = oppositeDirs[newDirection] == oldDirection ? oldDirection : newDirection;
                 
-                crtNd.data.direction = newDirection;
                 var newX, newY, oldX = crtNd.data.x, oldY = crtNd.data.y;
+                crtNd.data.direction = newDirection;
                 function compNewXY() {
                     newX = crtNd.data.x + horizDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
                     newY = crtNd.data.y + vertDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
                 }
                 compNewXY();
+                
                 if(newX<1 || newX > this.colCount || newY<1 || newY > this.rowCount) {
                     this.gameOver("Game over, you left the playground.");
                 } else {
@@ -285,6 +372,7 @@
                     if(jqCell.hasClass("body")) {
                         this.gameOver("Game over, snake's riding itself now...");
                     } else {
+                        var isOnLOS = jqCell.hasClass("lineOfSight");
                         theFoodDispenser.checkCell(newX, newY);
                         
                         this.markCell(crtNd, oldX, oldY, "body");
@@ -292,12 +380,23 @@
                         crtNd.data.y = newY;
                         var newNode;
                         if(oldDirection != crtNd.data.direction) {
+                            $(".lineOfSight").removeClass("lineOfSight");
                             newNode = new SnakeNode(oldX, oldY, oldDirection, crtNd.data.direction, "N");
                             newNode = this.nodes.insertBefore(newNode, crtNd);
                             this.markCell(newNode, oldX, oldY);
                         }
                         this.markCell(crtNd, newX, newY, "body", jqCell);
                         this.markCell(crtNd, newX, newY, false, jqCell);
+                        
+                        if(isOnLOS) {
+                            var headDir = crtNd.data.direction;
+                            this.keyCommands.enqueue(
+                                horizDirs[headDir] ?
+                                    (crtNd.data.y > theFoodDispenser.theFoodItem.y ? "U" : "D") :
+                                    (crtNd.data.x > theFoodDispenser.theFoodItem.x ? "L" : "R")
+                            );
+                            $(".lineOfSight").removeClass("lineOfSight");
+                        }
                     }
                 }
                 
@@ -313,7 +412,7 @@
                     crtNd.data.direction = crtNd.next.data.direction;
                     this.nodes.remove(crtNd.next);
                 }
-                this.markCell(crtNd, oldX, oldY, "none");
+                this.markCell(crtNd, oldX, oldY, true);
                 crtNd.data.x = newX;
                 crtNd.data.y = newY;
                 this.markCell(crtNd, newX, newY);
@@ -339,13 +438,15 @@
             });
         </script>
         <style type="text/css">
+            table {
+                border-left: 1px solid lightgray;
+                border-bottom: 1px solid lightgray;
+            }
             td {
                 width: 15px;
                 height: 15px;
-                border: 1px solid black;
-            }
-            td .snakeBody {
-                background-color: brown;
+                border-right: 1px solid lightgray;
+                border-top: 1px solid lightgray;
             }
             
             .body {
@@ -377,10 +478,13 @@
                 border-radius: 0px 0px 0px 7px;
             }
             
-            .BigEgg{
-                border-radius: 5px;
-                background-color: lightgoldenrodyellow;
-                border-color: lightgoldenrodyellow;
+            .FoodItem{
+                color: lightgoldenrodyellow;
+                background-color: burlywood;
+                text-align: center;
+            }
+            .lineOfSight {
+                background-color: burlywood;
             }
         </style>
     </head>
