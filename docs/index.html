@@ -2,25 +2,34 @@
     <head>
         <title> The Snake game - an HTML implementation </title>
         <script type="text/javascript" src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+        <style>
+            body {
+                padding: 0 2cm 0 2cm;
+            }
+        </style>
     </head>
     <body>
+        <p>
+            yada yada yada... just get me to the game! </br>
+            <a href="game.html">Here you go...</a>
+        </p>
         <h1> The Snake game - an HTML implementation </h1>
         <p>
             <h2> Data structure </h2>
-            Data structure used to represent the snake's "bodyparts" (the head, tail and the turning points): a Doubly-Linked List.<br/>
+            The data structure used to represent the snake's "bodyparts" (the head, tail and the waypoints): a Doubly-Linked List.<br/>
+            The waypoints are cells where the head changed it's direction. Waypoints are fixed whereas the head and tail are moving.<br/>
             
             <h3> Nodes </h3>
             Each "node" in that list keeps the following information:<br/>
             <ul>
                 <li> The X,Y coordinates </li>
-                <li> The direction (more on that later) </li>
-                <li> The old direction (turning point-specific, more on that later) </li>
-                <li> What kind of body part is there ("H", "T" or "N", as in the "bodyPartClasses" variable) </li>
+                <li> The direction - when the tail node reaches a waypoint, it (the tail) takes the direction stored in the waypoint. </li>
+                <li> The old direction - important for the proper display of the waypoints, see for example the "dir&lt;OldDirection&gt;&lt;Direction&gt;" css classes. It's also used for validating direction change commands. </li>
+                <li> What kind of body part is it ("H", "T" or "W", as in the "bodyPartClasses" variable) </li>
             </ul>
-            The turning points are generated at the position of the head, when the user changes the snake's direction.<br/>
-            Specific to the turning points is the oldDirection field, keeping the head's direction before the user changed it.<br/>
-            The direction field is self-explanatory for the head node. For the turning points it is the (new) direction that the head took when the TP was generated.<br/>
-            For head and tail, both the direction and the oldDirection fields are the same.<br/>
+            The waypoints are generated at the position of the head, when the user changes the snake's direction.<br/>
+            The direction field is self-explanatory for the head node. For the waypoints it is the (new) direction that the head took when the waypoint was generated.<br/>
             
             <h3>The algorithm </h3>
             ...is quite simple:
@@ -29,7 +38,7 @@
                     <ol>
                         <li> The node list is instantiated with a head and a tail in the middle of the game surface, moving to the Right </li>
                         <li> The snake is drawn on the surface </li>
-                        <li> A Interval of 300ms is setup that calls the advance() method </li>
+                        <li> A Interval of some hardcoded milliseconds is setup that calls the advance() method </li>
                         <li> A keydown event handler is setup for the document which (after some validation) registers the direction in which the user wants to lead the snake </li>
                     </ol>
                 </li>
@@ -40,12 +49,12 @@
                         <li> Checks whether the head will go outside the gaming surface or over it's own body, in which case it calls the gameOver method and returns </li>
                         <li> Calls the food dispenser's checkCell method to see wether there's anything to "eat" at the new location </li>
                         <li> "Clears" the old location (only keeping it's body class) </li>
-                        <li> If a change in direction was requested in the "onkeydown" handler, then a new Turning Point is generated with the head's old position and direction and inserted just before the head by calling the DLList's insertBefore method. The turning point is marked with the appropriate css classes </li>
+                        <li> If a change in direction was requested in the "onkeydown" handler, then a new waypoint is generated with the head's old position and direction and inserted just before the head by calling the DLList's insertBefore method. The waypoint is marked with the appropriate css classes </li>
                         <li> The new head's position is marked with the appropriate css classes according to it's bodypart and direction </li>
                         <li> //The tail: </li>
                         <li> Checks whether the snake needs to grow (the cntLeft2Grow property), in which case cntLeft2Grow is decremented and the following steps are ignored </li>
                         <li> Computes the tail's new position according to it's direction </li>
-                        <li> Checks whether the tail's newly computed position is over the last Turning Point. If it is, then the tail takes that TP's direction and deletes it </li>
+                        <li> Checks whether the tail's newly computed position is over the last waypoint. If it is, then the tail takes that waypoint's direction and deletes it </li>
                         <li> The tail's old position is cleared of all of it's snake-body-related css classes </li>
                         <li> The tail's new position is marked according to it's bodypart and direction </li>
                     </ol>
@@ -56,11 +65,19 @@
             The game surface is a HTML table, generated at document load with some set dimensions (rowcount, column count).<br/>
             The various types of cells are given css classes according to their status (in or out of the snake, and if inside then according to whatever bodypart and direction is to be applied).</br>
             
-            <h3> JavaScript takeaways </h3>
+            <h3> Takeaways for beginner programmers </h3>
             <ul>
-                <li> Object-oriented programming, the prototypal inheritance flavour </li>
-                <li> <a href="https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/setInterval"> setInterval and clearInterval </a> </li>
-                <li> <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Property_Accessors"> Property accessors using the bracket notation </a> </li>
+                <li>
+                    Javascript 
+                    <ul>
+                        <li> Object-oriented programming, the prototypal inheritance flavour </li>
+                        <li> <a href="https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/setInterval"> setInterval and clearInterval </a> </li>
+                        <li> <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Property_Accessors"> Property accessors using the bracket notation </a> </li>
+                    </ul>
+                </li>
+                <li>
+                    Data structures: doubly-linked lists and queues.
+                </li>
             </ul>
         </p>
     </body>
