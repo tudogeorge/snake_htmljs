@@ -70,7 +70,8 @@
                 this.foodItemFactories = [
                     (x, y) => new Egg(this, x, y),
                     (x, y) => new Hamburger(this, x, y),
-                    (x, y) => new Crosshairs(this, x, y)
+                    (x, y) => new Crosshairs(this, x, y),
+                    (x, y) => new Vortex(this, x,y)
                 ];
                 
                 var crtX, crtY;
@@ -78,7 +79,8 @@
                     crtX = getRandomIntInclusive(1, maxX);
                     crtY = getRandomIntInclusive(1, maxY);
                 } while(!document.querySelector("#cell" + crtX + "_" + crtY + ":not(.body)"));
-                this.theFoodItem = this.foodItemFactories[getRandomIntInclusive(0, 2)].call(this, crtX, crtY);
+                var n = this.foodItemFactories.length - 1;
+                this.theFoodItem = this.foodItemFactories[getRandomIntInclusive(0, n)].call(this, crtX, crtY);
             }
             
             function Point(x, y) {
@@ -142,8 +144,23 @@
             Crosshairs.prototype.constructor = Crosshairs;
             Crosshairs.prototype = Object.create(FoodItem.prototype);
             
+            function Vortex(foodDispenser, x, y) {
+                FoodItem.call(this, foodDispenser, x, y);
+                this.actionsWhenEaten.push({
+                    method: Snake.prototype.addVortexShots,
+                    args: [1]
+                }, {
+                    method: function() { $(".FoodItem > span.fa-spinner").remove(); },
+                    args: null
+                });
+                this.jqCell.addClass(this.className = "FoodItem");
+                this.jqCell.append($('<span class="fas fa-spinner fa-spin"> </span>'));
+            }
+            Vortex.prototype.constructor = Vortex;
+            Vortex.prototype = Object.create(FoodItem.prototype);
+            
             //direction: L(eft), R(ight), U(p), D(own)
-            //bodyPart: H(ead), B(ody), T(ail)
+            //bodyPart: H(ead), W(ayPoint), T(ail)
             function SnakeNode(x, y, oldDirection, direction, bodyPart) {
                 Point.call(this, x, y);
                 
@@ -213,6 +230,7 @@
                 this.intervalID;
                 this.cntLeft2Grow = 0;
                 this.sniperShots = 0;
+                this.vortexShots = 0;
                 this.paused = false;
                 this.nodes = new DLList(new SnakeNode(40 / 2 + 5, 15 / 2, "R", "R", "H"), new SnakeNode(40 / 2 - 5, 15 / 2, "R", "R", "T"));
                 this.keyCommands = new Queue();
@@ -222,9 +240,11 @@
                 this.intervalID = setInterval(function() { thisSnake.advance(); }, this.timeInterval);
                 
                 document.onkeydown = function(event) {
-                    switch(event.key.toUpperCase()) {
+                    var upKey = event.key.toUpperCase();
+                    switch(upKey) {
                         case "X":
-                            thisSnake.keyCommands.enqueue("X");
+                        case "V":
+                            thisSnake.keyCommands.enqueue(upKey);
                             break;
                         case " ":
                             thisSnake.togglePause();
@@ -242,6 +262,9 @@
             }
             Snake.prototype.addSniperShots = function(howMany) {
                 this.sniperShots += Number(howMany);
+            }
+            Snake.prototype.addVortexShots = function(howMany) {
+                this.vortexShots += Number(howMany);
             }
             Snake.prototype.togglePause = function() {
                 this.paused = !this.paused;
@@ -280,6 +303,43 @@
                     }
                 }
                 this.sniperShots--;
+            }
+            Snake.prototype.openVortex = function() {
+                if(this.vortexShots == 0)
+                    return;
+                
+                $(".vortexEntry, .vortexExit").removeClass("vortexEntry").removeClass("vortexExit");
+                
+                var snkHead = this.nodes.itmHead.data;
+                var headDir = snkHead.direction;
+                
+                var dx = horizDirs[headDir] * forwardCoeffs[headDir],
+                    dy = vertDirs[headDir] * forwardCoeffs[headDir];
+                var crtX = snkHead.x + dx,
+                    crtY = snkHead.y + dy;
+                var jqCell;
+                var xInsidePlayground = () => crtX <= this.colCount && crtX > 0;
+                var yInsidePlayground = () => crtY <= this.rowCount && crtY > 0;
+                var xSnakePathReached = () => vertDirs[headDir] && crtX == snkHead.x;
+                var ySnakePathReached = () => horizDirs[headDir] && crtY == snkHead.y;
+                var isBodyCell = () => (jqCell = $("#cell" + crtX + "_" + crtY)).hasClass("body");
+
+                var snakeBodyReached = false;
+                while(!(snakeBodyReached = isBodyCell()) && xInsidePlayground() && yInsidePlayground()) {
+                    crtX += dx;
+                    crtY += dy;
+                }
+                
+                if(!snakeBodyReached) {
+                    var isHoriz = horizDirs[headDir] != 0;
+                    var isFwd = forwardCoeffs[headDir] > 0;
+                    var inCell = "#guardCell" + (isHoriz ? "Row" : "Col") + (isFwd ? "End" : "Start") + (isHoriz ? snkHead.y : snkHead.x);
+                    var outCell = "#guardCell" + (isHoriz ? "Row" : "Col") + (isFwd ? "Start" : "End") + (isHoriz ? snkHead.y : snkHead.x);
+                    $(inCell).addClass("vortexEntry").append($('<span class="fas fa-spinner fa-spin"> </span>'));
+                    $(outCell).addClass("vortexExit").append($('<span class="fas fa-spinner fa-spin"> </span>'));
+                }
+                
+                this.vortexShots--;
             }
             Snake.prototype.draw = function() {
                 var crtItm, nxtItm;
@@ -355,6 +415,9 @@
                 if(newDirection == "X") {
                     this.acquireTarget();
                     return;
+                } else if (newDirection == "V") {
+                    this.openVortex();
+                    return;
                 }
                 newDirection = oppositeDirs[newDirection] == oldDirection ? oldDirection : newDirection;
                 
@@ -364,40 +427,66 @@
                     newX = crtNd.data.x + horizDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
                     newY = crtNd.data.y + vertDirs[crtNd.data.direction] * forwardCoeffs[crtNd.data.direction];
                 }
+                var enteringVortex = (HCallback, VCallback) => {
+                    if(newX < 1 || newX > this.colCount) {
+                        if($("#guardCellRow" + (newX < 1 ? "Start" : "End") + crtNd.data.y).hasClass("vortexEntry")) {
+                            newX = newX < 1 ? this.colCount : 1;
+                            if(HCallback)
+                                HCallback();
+                        }
+                    } else{
+                        if($("#guardCellCol" + (newY < 1 ? "Start" : "End") + crtNd.data.x).hasClass("vortexEntry")) {
+                            newY = newY < 1 ? this.rowCount : 1;
+                            if(VCallback)
+                                VCallback();
+                        }
+                    }
+                }
                 compNewXY();
                 
                 if(newX<1 || newX > this.colCount || newY<1 || newY > this.rowCount) {
-                    this.gameOver("Game over, you left the playground.");
+                    var newNode;
+                    var gameOver = true;
+                    enteringVortex(
+                        () => {
+                            newNode = new SnakeNode(newX, oldY, oldDirection, crtNd.data.direction, "W");
+                            gameOver = false;
+                        }, () => {
+                            newNode = new SnakeNode(oldX, newY, oldDirection, crtNd.data.direction, "W");
+                            gameOver = false;
+                        });
+                    if(gameOver) {
+                        this.gameOver("Game over, you left the playground.");
+                        return;
+                    }
+                }
+                var jqCell = this.getJQCell(newX, newY);
+                if(jqCell.hasClass("body")) {
+                    this.gameOver("Game over, snake's riding itself now...");
                 } else {
-                    var jqCell = this.getJQCell(newX, newY);
-                    if(jqCell.hasClass("body")) {
-                        this.gameOver("Game over, snake's riding itself now...");
-                    } else {
-                        var isOnLOS = jqCell.hasClass("lineOfSight");
-                        theFoodDispenser.checkCell(newX, newY);
-                        
-                        this.markCell(crtNd, oldX, oldY, "body");
-                        crtNd.data.x = newX;
-                        crtNd.data.y = newY;
-                        var newNode;
-                        if(oldDirection != crtNd.data.direction) {
-                            $(".lineOfSight").removeClass("lineOfSight");
-                            newNode = new SnakeNode(oldX, oldY, oldDirection, crtNd.data.direction, "W");
-                            newNode = this.nodes.insertBefore(newNode, crtNd);
-                            this.markCell(newNode, oldX, oldY);
-                        }
-                        this.markCell(crtNd, newX, newY, "body", jqCell);
-                        this.markCell(crtNd, newX, newY, false, jqCell);
-                        
-                        if(isOnLOS) {
-                            var headDir = crtNd.data.direction;
-                            this.keyCommands.enqueue(
-                                horizDirs[headDir] ?
-                                    (crtNd.data.y > theFoodDispenser.theFoodItem.y ? "U" : "D") :
-                                    (crtNd.data.x > theFoodDispenser.theFoodItem.x ? "L" : "R")
-                            );
-                            $(".lineOfSight").removeClass("lineOfSight");
-                        }
+                    var isOnLOS = jqCell.hasClass("lineOfSight");
+                    theFoodDispenser.checkCell(newX, newY);
+
+                    this.markCell(crtNd, oldX, oldY, "body");
+                    crtNd.data.x = newX;
+                    crtNd.data.y = newY;
+                    if(oldDirection != crtNd.data.direction) {
+                        $(".lineOfSight").removeClass("lineOfSight");
+                        newNode = new SnakeNode(oldX, oldY, oldDirection, crtNd.data.direction, "W");
+                        newNode = this.nodes.insertBefore(newNode, crtNd);
+                        this.markCell(newNode, oldX, oldY);
+                    }
+                    this.markCell(crtNd, newX, newY, "body", jqCell);
+                    this.markCell(crtNd, newX, newY, false, jqCell);
+
+                    if(isOnLOS) {
+                        var headDir = crtNd.data.direction;
+                        this.keyCommands.enqueue(
+                            horizDirs[headDir] ?
+                                (crtNd.data.y > theFoodDispenser.theFoodItem.y ? "U" : "D") :
+                                (crtNd.data.x > theFoodDispenser.theFoodItem.x ? "L" : "R")
+                        );
+                        $(".lineOfSight").removeClass("lineOfSight");
                     }
                 }
                 
@@ -409,6 +498,13 @@
                 oldX = crtNd.data.x;
                 oldY = crtNd.data.y;
                 compNewXY();
+                if(newX<1 || newX > this.colCount || newY<1 || newY > this.rowCount) {
+                    var newNode;
+                    var gameOver = true;
+                    var closeVortex = () => $(".vortexEntry, .vortexExit").removeClass("vortexEntry").removeClass("vortexExit").empty();
+                    enteringVortex(closeVortex, closeVortex);
+                }
+                
                 if(crtNd.next.data.x == newX && crtNd.next.data.y == newY) {
                     crtNd.data.direction = crtNd.next.data.direction;
                     this.nodes.remove(crtNd.next);
@@ -424,14 +520,27 @@
                 var colCount = 40;
                 
                 var jqTbl = $('<table cellspacing="0"></table>');
-                var jqRw;
+                var jqRw = $("<tr></tr>");
+                for(var j=0; j<=colCount + 1; j++) {
+                    jqRw.append($('<td class="guardCell colStart" id="guardCellColStart' + j + '"></td>'));
+                }
+                jqTbl.append(jqRw);
+
                 for(var i=1; i<=rowCount; i++) {
                     jqRw = $("<tr></tr>");
+                    jqRw.append($('<td class="guardCell rowStart" id="guardCellRowStart' + i + '"></td>'));
                     for(var j=1; j<=colCount; j++) {
                         jqRw.append($('<td id="cell' + j + "_" + i + '"></td>'));
                     }
+                    jqRw.append($('<td class="guardCell rowEnd" id="guardCellRowEnd' + i + '"></td>'));
                     jqTbl.append(jqRw);
                 }
+                
+                var jqRw = $("<tr></tr>");
+                for(var j=0; j<=colCount + 1; j++) {
+                    jqRw.append($('<td class="guardCell colEnd" id="guardCellColEnd' + j + '"></td>'));
+                }
+                jqTbl.append(jqRw);
                 $("body").append(jqTbl);
                 
                 theFoodDispenser = new FoodDispenser(rowCount, colCount);
@@ -440,14 +549,19 @@
         </script>
         <style type="text/css">
             table {
-                border-left: 1px solid lightgray;
-                border-bottom: 1px solid lightgray;
             }
             td {
                 width: 15px;
                 height: 15px;
                 border-right: 1px solid lightgray;
                 border-top: 1px solid lightgray;
+            }
+            td.guardCell {
+                background-color: lightgray;
+            }
+            td.guardCell.rowStart {
+                border: none;
+                border-right: 1px solid lightgray;
             }
             
             .body {
@@ -486,6 +600,12 @@
             }
             .lineOfSight {
                 background-color: burlywood;
+            }
+            .vortexEntry {
+                background-color: greenyellow !important;
+            }
+            .vortexExit {
+                background-color: pink !important;
             }
         </style>
     </head>

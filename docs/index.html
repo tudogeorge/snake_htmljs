@@ -65,6 +65,30 @@
             The game surface is a HTML table, generated at document load with some set dimensions (rowcount, column count).<br/>
             The various types of cells are given css classes according to their status (in or out of the snake, and if inside then according to whatever bodypart and direction is to be applied).</br>
             
+            <h3> Gameplay </h3>
+            The game surface is 15 cells high by 40 cells wide.<br/>
+            The snake's speed is hard-coded and constant at about 10 blocks / second. The player controls the direction of travel by pressing the arrow keys.<br/>
+            At any given time there is a food or reward item displayed on the game surface; at the time, there are four types of these, as follows:
+            <ol>
+                <li> Egg: when eaten it causes the snake to grow by 3 cells. </li>
+                <li> Burger: the snake grows by 5 cells. </li>
+                <li> Crosshairs: when eaten it gives the player 3 "sniper shots". </li>
+                <li> Spinner: it gives the player one "vortex shot". </li>
+            </ol>
+            <h4> The Sniper Shots </h4>
+            <i> TLDR: Lets the snake automatically change course (one time) towards it's prey, without the player having to press any key. </i><br/>
+            The player gets 3 sniper shots when the snake eats a "crosshairs" symbol.</br>
+            A sniper shot is used by pressing the "X" key, at which moment the game displays a vertical or horizontal line (the "line of sight"), perpendicular to the snake's direction of travel, between the food item that's displayed on the surface and the snake's direction.<br/>
+            If the line of sight encounters the snake's body then the drawing stops, it won't reach the snake's direction of travel and the shot is wasted.
+            If the snake changes direction while a line of sight is displayed then the line of sight disappears and so the shot is again wasted.
+            When the snake's head reaches the line of sight it will automatically change direction towards the food item, without the player having to give any direction change commands.
+
+            <h4> The Vortex </h4>
+            <i> TLDR: Allows the snake to enter the walls and emerge on the opposite side. </i><br/>
+            The player gets one vortex shot when the snake eats a spinner symbol. <br/>
+            A vortex shot is fired by the user pressing the "V" key. At that moment, provided the snake's body doesn't obstruct the path between the snake's head and the wall towards which it is moving, a spinner on a green background is displayed next to the place where the head will enter the wall. Also a spinner on a red background is displayed on the opposite side, where the snake will emerge.<br/>
+            The vortex shot is wasted if the snake's body obstructs the line between the snake's head and the wall towards which it is headed.
+            
             <h3> Takeaways for beginner programmers </h3>
             <ul>
                 <li>
